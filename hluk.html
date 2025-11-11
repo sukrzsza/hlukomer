@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hlasovanie Hlukom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light background for friendly look */
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .vote-card {
+            background-color: white;
+            padding: 24px;
+            border-radius: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s;
+        }
+        .vote-card:hover {
+            transform: translateY(-2px);
+        }
+        .gauge-container {
+            height: 120px;
+            background: #e0e7ff;
+            border-radius: 0.75rem;
+            position: relative;
+            overflow: hidden;
+        }
+        #liveNoiseBar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            transition: height 0.1s linear, background-color 0.3s ease;
+            transform-origin: bottom;
+            will-change: height, background-color;
+        }
+        /* Custom styling for the vote buttons */
+        .vote-button {
+            transition: all 0.15s ease;
+            box-shadow: 0 4px #1e40af;
+        }
+        .vote-button:hover {
+            box-shadow: 0 2px #1e40af;
+            transform: translateY(2px);
+        }
+        .vote-button:active {
+            box-shadow: none;
+            transform: translateY(4px);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center">
+
+    <div class="w-full max-w-5xl">
+        <h1 class="text-4xl font-extrabold text-center text-gray-800 my-8">
+            Hlasovanie Hlukom 🎤
+        </h1>
+
+        <!-- 1. Nastavenie položiek na hlasovanie -->
+        <div class="bg-indigo-50 p-6 rounded-2xl shadow-inner mb-8">
+            <h2 class="text-2xl font-bold text-indigo-700 mb-4">1. Zadajte položky na hlasovanie</h2>
+            <div id="inputSection" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input type="text" id="option1Name" placeholder="Položka 1 (napr. Pizza)" value="Víkendový film" class="p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="option2Name" placeholder="Položka 2 (napr. Ovocie)" value="Čítanie knihy" class="p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="option3Name" placeholder="Položka 3 (napr. Hra)" value="Voľná aktivita" class="p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <button id="authButton" onclick="toggleAudioAccess()" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition duration-300">
+                Pripraviť mikrofón a Štart
+            </button>
+        </div>
+
+        <!-- 2. Sekcia pre živé meranie -->
+        <div id="liveGaugeSection" class="hidden mb-8">
+            <h2 class="text-3xl font-extrabold text-center text-gray-700 mb-4" id="measurementStatus">
+                Pripravený na meranie
+            </h2>
+            <div class="gauge-container mx-auto max-w-md p-4 flex justify-center items-center">
+                <div id="liveNoiseBar" class="bg-gray-400" style="height: 0%;"></div>
+                <div class="relative z-10 text-center">
+                    <p id="liveDbDisplay" class="text-5xl font-black text-gray-800">
+                        0 dB
+                    </p>
+                    <p id="timerDisplay" class="text-xl font-semibold text-indigo-600 mt-1">
+                        3.0 sekúnd
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 3. Hlasovacie karty -->
+        <div id="votingSection" class="grid grid-cols-1 md:grid-cols-3 gap-6 opacity-50 pointer-events-none">
+            
+            <!-- Položka 1 -->
+            <div class="vote-card text-center flex flex-col items-center" data-option="1">
+                <h3 id="display1Name" class="text-2xl font-extrabold text-indigo-900 mb-3">Víkendový film</h3>
+                <p class="text-4xl font-bold text-gray-600 my-4">Skóre: <span id="score1" class="text-indigo-600">0 dB</span></p>
+                <button onclick="startVote(1)" id="voteButton1" class="vote-button w-full bg-indigo-600 text-white font-bold py-3 rounded-xl mt-4">
+                    Hlasovať za túto položku
+                </button>
+            </div>
+
+            <!-- Položka 2 -->
+            <div class="vote-card text-center flex flex-col items-center" data-option="2">
+                <h3 id="display2Name" class="text-2xl font-extrabold text-indigo-900 mb-3">Čítanie knihy</h3>
+                <p class="text-4xl font-bold text-gray-600 my-4">Skóre: <span id="score2" class="text-indigo-600">0 dB</span></p>
+                <button onclick="startVote(2)" id="voteButton2" class="vote-button w-full bg-indigo-600 text-white font-bold py-3 rounded-xl mt-4">
+                    Hlasovať za túto položku
+                </button>
+            </div>
+
+            <!-- Položka 3 -->
+            <div class="vote-card text-center flex flex-col items-center" data-option="3">
+                <h3 id="display3Name" class="text-2xl font-extrabold text-indigo-900 mb-3">Voľná aktivita</h3>
+                <p class="text-4xl font-bold text-gray-600 my-4">Skóre: <span id="score3" class="text-indigo-600">0 dB</span></p>
+                <button onclick="startVote(3)" id="voteButton3" class="vote-button w-full bg-indigo-600 text-white font-bold py-3 rounded-xl mt-4">
+                    Hlasovať za túto položku
+                </button>
+            </div>
+        </div>
+
+        <!-- 4. Vyhodnotenie -->
+        <div class="mt-10 text-center">
+            <button id="evaluateButton" onclick="evaluateWinner()" class="bg-green-600 hover:bg-green-700 text-white font-extrabold text-2xl py-4 px-12 rounded-2xl shadow-xl transition duration-300 transform hover:scale-105 disabled:opacity-50" disabled>
+                Vyhodnotiť Víťaza!
+            </button>
+            <p id="winnerDisplay" class="text-3xl font-bold mt-6 text-gray-800 hidden">
+                <!-- Tu sa zobrazí víťaz -->
+            </p>
+        </div>
+
+        <!-- Chybové správy/Informácie -->
+        <div id="messageBox" class="mt-8 text-center text-sm text-red-500 hidden p-4 bg-red-100 rounded-lg max-w-lg mx-auto">
+            <!-- Sem pôjdu chybové správy -->
+        </div>
+
+    </div>
+
+    <script type="text/javascript">
+        // Globálne premenné pre Audio API
+        let audioContext = null;
+        let analyser = null;
+        let mediaStream = null;
+        let animationId = null;
+        let isMonitoring = false;
+        let maxLoudness = 0;
+
+        // Nastavenia merania
+        const MEASUREMENT_DURATION_S = 3;
+        const OPTIONS = [
+            { id: 1, name: 'option1Name', score: 0, display: 'display1Name', scoreDisplay: 'score1', button: 'voteButton1' },
+            { id: 2, name: 'option2Name', score: 0, display: 'display2Name', scoreDisplay: 'score2', button: 'voteButton2' },
+            { id: 3, name: 'option3Name', score: 0, display: 'display3Name', scoreDisplay: 'score3', button: 'voteButton3' },
+        ];
+        
+        // Elementy DOM
+        const liveGaugeSection = document.getElementById('liveGaugeSection');
+        const liveDbDisplay = document.getElementById('liveDbDisplay');
+        const liveNoiseBar = document.getElementById('liveNoiseBar');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const measurementStatus = document.getElementById('measurementStatus');
+        const votingSection = document.getElementById('votingSection');
+        const messageBox = document.getElementById('messageBox');
+        const authButton = document.getElementById('authButton');
+        const evaluateButton = document.getElementById('evaluateButton');
+        const winnerDisplay = document.getElementById('winnerDisplay');
+        const inputSection = document.getElementById('inputSection');
+
+
+        // --- Pomocné funkcie ---
+
+        function displayMessage(text, isError = true) {
+            messageBox.textContent = text;
+            messageBox.classList.remove('hidden');
+            messageBox.classList.toggle('text-red-500', isError);
+            messageBox.classList.toggle('bg-red-100', isError);
+            messageBox.classList.toggle('text-blue-500', !isError);
+            messageBox.classList.toggle('bg-blue-100', !isError);
+        }
+
+        function toggleButtons(disabled) {
+            OPTIONS.forEach(opt => {
+                document.getElementById(opt.button).disabled = disabled;
+            });
+            evaluateButton.disabled = disabled;
+        }
+
+        // Funkcia na výpočet relatívnej úrovne decibelov (dBr)
+        function calculateLoudness(data) {
+            let sumOfSquares = 0;
+            for (let i = 0; i < data.length; i++) {
+                // Konvertujeme na hodnotu medzi -1 a 1
+                const value = (data[i] / 128) - 1; 
+                sumOfSquares += value * value;
+            }
+            const rms = Math.sqrt(sumOfSquares / data.length);
+            
+            // Konverzia RMS na relatívne decibely (dBr)
+            const rmsNormalized = Math.max(0.00001, rms); 
+            const dBr = 20 * Math.log10(rmsNormalized); 
+            
+            // Mapujeme dBr (-100 dB až 0 dB) na 0-100 dB škálu
+            const displayedDb = Math.round(Math.min(100, Math.max(0, dBr + 100)));
+            
+            return displayedDb;
+        }
+
+        // --- Core Audio Setup ---
+
+        async function setupAudio() {
+            if (isMonitoring) return true;
+            
+            try {
+                // 1. Získanie prístupu k mikrofónu
+                if (!mediaStream) {
+                    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                }
+                
+                // 2. Inicializácia Audio Contextu
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                // 3. Vytvorenie zdrojového uzla zo streamu
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                
+                // 4. Vytvorenie Analyser Node
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048; 
+                
+                // 5. Pripojenie uzlov
+                source.connect(analyser);
+
+                isMonitoring = true;
+                return true;
+
+            } catch (error) {
+                console.error("Chyba prístupu k mikrofónu:", error);
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    displayMessage('Chyba: Prístup k mikrofónu bol zamietnutý. Pre spustenie hlasovania ho musíte povoliť.', true);
+                } else {
+                    displayMessage(`Vyskytla sa neočakávaná chyba: ${error.message}.`, true);
+                }
+                isMonitoring = false;
+                return false;
+            }
+        }
+        
+        // Funkcia spustí alebo zastaví prístup k mikrofónu
+        async function toggleAudioAccess() {
+            if (isMonitoring) {
+                 // Ak už beží, len ho resetujeme pre nové hlasovanie
+                 // (Nemali by sme ho vypínať, len ho budeme používať)
+                displayMessage('Mikrofón už beží, môžete hlasovať.', false);
+                return;
+            }
+            
+            const success = await setupAudio();
+            
+            if (success) {
+                // Skryť vstupy a tlačidlo Štart, zobraziť meranie
+                inputSection.classList.add('hidden');
+                liveGaugeSection.classList.remove('hidden');
+                votingSection.classList.remove('opacity-50', 'pointer-events-none');
+                authButton.textContent = "Mikrofón Pripravený";
+                authButton.disabled = true;
+
+                // Aktualizácia názvov v kartách
+                document.getElementById('display1Name').textContent = document.getElementById('option1Name').value || "Položka 1";
+                document.getElementById('display2Name').textContent = document.getElementById('option2Name').value || "Položka 2";
+                document.getElementById('display3Name').textContent = document.getElementById('option3Name').value || "Položka 3";
+
+                // Nastavenie počiatočného stavu
+                toggleButtons(false);
+                evaluateButton.disabled = true;
+                winnerDisplay.classList.add('hidden');
+                messageBox.classList.add('hidden');
+                
+            } else {
+                 authButton.textContent = "Opakovať prístup k mikrofónu";
+            }
+        }
+        
+
+        // --- Voting Logic ---
+
+        function startNoiseMonitoring(optionId) {
+            if (animationId) cancelAnimationFrame(animationId);
+            
+            const dataArray = new Uint8Array(analyser.fftSize);
+            maxLoudness = 0;
+            let currentOption = OPTIONS.find(o => o.id === optionId);
+            
+            // Nastavenie UI
+            toggleButtons(true);
+            document.getElementById(currentOption.button).disabled = false; // Necháme iba toto tlačidlo disabled (až po štarte)
+            document.getElementById(currentOption.button).textContent = "MERIAM Hluk...";
+            document.getElementById(currentOption.button).classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            document.getElementById(currentOption.button).classList.add('bg-red-500');
+            measurementStatus.textContent = `HLASOVANIE: ${document.getElementById(currentOption.display).textContent}`;
+            winnerDisplay.classList.add('hidden');
+
+
+            function monitorLoop() {
+                if (!analyser) return;
+
+                analyser.getByteTimeDomainData(dataArray);
+                const currentLoudness = calculateLoudness(dataArray);
+
+                // Zaznamenanie maximálnej hodnoty
+                maxLoudness = Math.max(maxLoudness, currentLoudness);
+
+                // Aktualizácia živého displeja
+                liveDbDisplay.textContent = `${currentLoudness} dB`;
+                liveNoiseBar.style.height = `${currentLoudness}%`;
+                liveNoiseBar.className = `absolute bottom-0 left-0 w-full transition-colors duration-300 ${currentLoudness > 70 ? 'bg-red-500' : currentLoudness > 40 ? 'bg-yellow-400' : 'bg-green-500'}`;
+
+                animationId = requestAnimationFrame(monitorLoop);
+            }
+            
+            monitorLoop();
+        }
+
+
+        async function startVote(optionId) {
+            if (!isMonitoring) {
+                displayMessage("Prosím, najprv Pripravte mikrofón a Štart.", true);
+                return;
+            }
+            
+            let timeRemaining = MEASUREMENT_DURATION_S;
+            let interval;
+            
+            // Zablokovať všetky tlačidlá a začať meranie
+            startNoiseMonitoring(optionId);
+            document.getElementById(`voteButton${optionId}`).disabled = true;
+            
+            // Nastavenie časovača
+            timerDisplay.textContent = `${timeRemaining.toFixed(1)} sekúnd`;
+            
+            // Spustenie odpočítavania
+            interval = setInterval(() => {
+                timeRemaining -= 0.1;
+                timerDisplay.textContent = `${timeRemaining.toFixed(1)} sekúnd`;
+
+                if (timeRemaining <= 0.1) {
+                    clearInterval(interval);
+                    endVote(optionId);
+                }
+            }, 100);
+        }
+
+        function endVote(optionId) {
+            if (animationId) cancelAnimationFrame(animationId);
+            
+            // Zaznamenanie skóre
+            let currentOption = OPTIONS.find(o => o.id === optionId);
+            currentOption.score = maxLoudness;
+            document.getElementById(currentOption.scoreDisplay).textContent = `${maxLoudness} dB`;
+
+            // Reset UI
+            liveDbDisplay.textContent = `FINISH!`;
+            timerDisplay.textContent = "Meranie dokončené";
+            measurementStatus.textContent = `Hlasovanie pre ${document.getElementById(currentOption.display).textContent} dokončené. Max hluk: ${maxLoudness} dB`;
+            
+            // Reset tlačidla
+            document.getElementById(currentOption.button).textContent = "Hlasované!";
+            document.getElementById(currentOption.button).classList.remove('bg-red-500');
+            document.getElementById(currentOption.button).classList.add('bg-gray-400');
+
+            // Povolenie ostatných tlačidiel (ak ešte nie sú hlasované)
+            let allVoted = true;
+            OPTIONS.forEach(opt => {
+                if (opt.score === 0) {
+                    document.getElementById(opt.button).disabled = false;
+                    document.getElementById(opt.button).textContent = "Hlasovať za túto položku";
+                    document.getElementById(opt.button).classList.remove('bg-gray-400');
+                    document.getElementById(opt.button).classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                    allVoted = false;
+                } else {
+                    document.getElementById(opt.button).disabled = true;
+                }
+            });
+
+            // Ak je všetko odhlasované, povoliť vyhodnotenie
+            if (allVoted) {
+                evaluateButton.disabled = false;
+                measurementStatus.textContent = "Všetko odhlasované! Vyhodnoťte víťaza.";
+            }
+        }
+        
+        // --- Vyhodnotenie Víťaza ---
+        function evaluateWinner() {
+            evaluateButton.disabled = true;
+            winnerDisplay.classList.remove('hidden');
+
+            // Nájsť víťaza (najvyššie skóre)
+            const winner = OPTIONS.reduce((prev, current) => (prev.score > current.score) ? prev : current);
+
+            // Zobrazenie výsledku
+            if (winner.score === 0) {
+                winnerDisplay.innerHTML = `Ešte nikto nehlasoval, alebo bol v triede hrobové ticho!`;
+                winnerDisplay.classList.remove('text-green-600');
+                winnerDisplay.classList.add('text-gray-800');
+            } else if (OPTIONS.filter(o => o.score === winner.score).length > 1) {
+                 winnerDisplay.innerHTML = `Máme **REMÍZU** s ${winner.score} dB! Skúste hlasovať znova!`;
+                 winnerDisplay.classList.remove('text-green-600');
+                 winnerDisplay.classList.add('text-yellow-600');
+            }
+            else {
+                const winnerName = document.getElementById(winner.display).textContent;
+                winnerDisplay.innerHTML = `🏆 VÍŤAZ JE: **${winnerName}** s hlukom ${winner.score} dB!`;
+                winnerDisplay.classList.remove('text-yellow-600');
+                winnerDisplay.classList.add('text-green-600');
+            }
+            
+            // Pridať možnosť reštartu
+            evaluateButton.textContent = "Reštartovať Hlasovanie";
+            evaluateButton.onclick = resetApp;
+            evaluateButton.disabled = false;
+            
+        }
+
+        // --- Reštart aplikácie ---
+        function resetApp() {
+            // Reset premenných
+            OPTIONS.forEach(opt => {
+                opt.score = 0;
+                document.getElementById(opt.scoreDisplay).textContent = '0 dB';
+                document.getElementById(opt.button).textContent = "Hlasovať za túto položku";
+                document.getElementById(opt.button).disabled = false;
+                document.getElementById(opt.button).classList.remove('bg-gray-400');
+                document.getElementById(opt.button).classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+            });
+
+            // Reset UI
+            winnerDisplay.classList.add('hidden');
+            evaluateButton.textContent = "Vyhodnotiť Víťaza!";
+            evaluateButton.onclick = evaluateWinner;
+            evaluateButton.disabled = true;
+            measurementStatus.textContent = "Pripravený na meranie";
+            liveDbDisplay.textContent = '0 dB';
+            timerDisplay.textContent = "3.0 sekúnd";
+            
+            // Zobraziť sekciu vstupov, skryť gauč
+            inputSection.classList.remove('hidden');
+            liveGaugeSection.classList.add('hidden');
+            votingSection.classList.add('opacity-50', 'pointer-events-none');
+            authButton.textContent = "Pripraviť mikrofón a Štart";
+            authButton.disabled = false;
+
+            // Zastaviť mikrofón
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close();
+                audioContext = null;
+            }
+            isMonitoring = false;
+            if (animationId) cancelAnimationFrame(animationId);
+        }
+
+        // Inicializácia pri načítaní
+        document.addEventListener('DOMContentLoaded', () => {
+             // Zabezpečenie, že všetky tlačidlá sú na začiatku zablokované
+             toggleButtons(true);
+        });
+        
+    </script>
+</body>
+</html>
